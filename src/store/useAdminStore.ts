@@ -398,6 +398,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       true,
     )
     set({ content: updated })
+    notifyCatalogChanged()
   },
   updateOrderItems: async (orderId, items) => {
     try {

@@ -6,6 +6,7 @@ import { QuantityStepper } from '../components/ui/QuantityStepper'
 import { cn } from '../components/ui/utils'
 import { products } from '../data'
 import { apiFetch } from '../lib/api'
+import { createWhatsAppUrl } from '../lib/contact'
 import {
   shippingMethods,
   useCartStore,
@@ -36,7 +37,6 @@ type SavedOrder = {
   subtotal: number
 }
 
-const WHATSAPP_NUMBER = '51999999999'
 const NOTE_LIMIT = 220
 
 const currencyFormatter = new Intl.NumberFormat('es-PE', {
@@ -511,6 +511,7 @@ function ConfirmationOverlay({ open }: { open: boolean }) {
 
 export function CartPage() {
   useCatalogStore((state) => state.version)
+  const siteContent = useCatalogStore((state) => state.content)
   const items = useCartStore((state) => state.items)
   const subtotal = useCartStore((state) => state.totals.subtotal)
   const removeItem = useCartStore((state) => state.removeItem)
@@ -602,9 +603,7 @@ export function CartPage() {
       subtotal,
     }
     const message = buildWhatsAppMessage({ form, items, subtotal })
-    const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-      message,
-    )}`
+    const whatsappUrl = createWhatsAppUrl(siteContent?.whatsappNumber, message)
 
     window.setTimeout(() => {
       saveOrder(order)

@@ -14,6 +14,12 @@ import {
 } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { categories, intentions, products, type Category, type Product } from '../../data'
+import {
+  createInstagramUrl,
+  createTelUrl,
+  createWhatsAppUrl,
+  formatPhoneLabel,
+} from '../../lib/contact'
 import { useCartStore, useCatalogStore } from '../../store'
 import { cn } from '../ui/utils'
 import { CartDrawer } from './CartDrawer'
@@ -35,12 +41,6 @@ const navItems: NavItem[] = [
   { label: 'Categorías', mega: 'categories', to: '/#categorias' },
   { label: 'Cómo Comprar', to: '/#como-comprar' },
   { label: 'Contacto', to: '/#contacto' },
-]
-
-const socialLinks = [
-  { href: 'https://instagram.com', label: 'Instagram' },
-  { href: 'https://tiktok.com', label: 'TikTok' },
-  { href: 'https://wa.me/51999999999', label: 'WhatsApp' },
 ]
 
 const currencyFormatter = new Intl.NumberFormat('es-PE', {
@@ -600,6 +600,18 @@ function MobileMenu({
   open: boolean
 }) {
   const location = useLocation()
+  const siteContent = useCatalogStore((state) => state.content)
+  const socialLinks = [
+    {
+      href: createInstagramUrl(siteContent?.instagramHandle),
+      label: 'Instagram',
+    },
+    { href: 'https://tiktok.com', label: 'TikTok' },
+    {
+      href: createWhatsAppUrl(siteContent?.whatsappNumber),
+      label: 'WhatsApp',
+    },
+  ]
 
   return (
     <AnimatePresence>
@@ -645,9 +657,17 @@ function MobileMenu({
             <p className="font-body text-xs uppercase tracking-widest text-sage-dark">
               Contacto
             </p>
-            <a className="mt-3 block font-display text-2xl text-ink" href="tel:+51999999999">
-              +51 999 999 999
+            <a
+              className="mt-3 block font-display text-2xl text-ink"
+              href={createTelUrl(siteContent?.whatsappNumber)}
+            >
+              {formatPhoneLabel(siteContent?.whatsappNumber)}
             </a>
+            {siteContent?.schedule ? (
+              <p className="mt-1 block font-body text-sm text-ink-muted">
+                {siteContent.schedule}
+              </p>
+            ) : null}
             <a
               className="mt-1 block font-body text-sm text-ink-muted"
               href="mailto:hola@auralith.pe"
@@ -680,6 +700,7 @@ function MobileMenu({
  */
 export function Header() {
   useCatalogStore((state) => state.version)
+  const siteContent = useCatalogStore((state) => state.content)
   const [activeMega, setActiveMega] = useState<MegaMenuType | null>(null)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
@@ -787,7 +808,7 @@ export function Header() {
             <a
               aria-label="Consultar por WhatsApp"
               className="group relative grid h-10 w-10 place-items-center rounded-full border border-[#25D366]/40 bg-[#25D366]/10 text-[#25D366] transition-colors hover:bg-[#25D366]/20"
-              href="https://wa.me/51999999999"
+              href={createWhatsAppUrl(siteContent?.whatsappNumber)}
               rel="noreferrer"
               target="_blank"
             >

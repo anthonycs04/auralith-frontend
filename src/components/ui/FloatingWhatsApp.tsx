@@ -1,5 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
+import { createWhatsAppUrl } from '../../lib/contact'
+import { useCatalogStore } from '../../store'
 
 function WhatsAppIcon() {
   return (
@@ -14,6 +16,7 @@ function WhatsAppIcon() {
  * scroll-velocity visibility behavior.
  */
 export function FloatingWhatsApp() {
+  const siteContent = useCatalogStore((state) => state.content)
   const [mounted, setMounted] = useState(false)
   const [visible, setVisible] = useState(true)
   const lastScrollY = useRef(0)
@@ -59,7 +62,7 @@ export function FloatingWhatsApp() {
           animate={{ opacity: 1, scale: [0, 1.2, 0.95, 1] }}
           className="auralith-floating-whatsapp group fixed bottom-6 right-6 z-50 grid h-14 w-14 place-items-center rounded-full bg-[#25D366] text-white shadow-[0_18px_45px_rgba(37,211,102,0.3)] will-change-transform"
           exit={{ opacity: 0, scale: 0 }}
-          href="https://wa.me/51999999999"
+          href={createWhatsAppUrl(siteContent?.whatsappNumber)}
           initial={{ opacity: 0, scale: 0 }}
           rel="noreferrer"
           target="_blank"

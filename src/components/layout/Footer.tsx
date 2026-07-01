@@ -1,7 +1,18 @@
 import { Camera, MessageCircle, ShieldCheck } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import {
+  createInstagramUrl,
+  createWhatsAppUrl,
+  formatInstagramLabel,
+} from '../../lib/contact'
+import { useCatalogStore } from '../../store'
 
 export function Footer() {
+  const siteContent = useCatalogStore((state) => state.content)
+  const whatsappUrl = createWhatsAppUrl(siteContent?.whatsappNumber)
+  const instagramUrl = createInstagramUrl(siteContent?.instagramHandle)
+  const instagramLabel = formatInstagramLabel(siteContent?.instagramHandle)
+
   return (
     <footer className="border-t border-gold/15 bg-ink px-5 py-12 text-cream md:px-8">
       <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
@@ -25,7 +36,7 @@ export function Footer() {
           <div className="mt-4 space-y-3 font-body text-sm text-cream-dark/70">
             <a
               className="flex items-center gap-2 hover:text-cream"
-              href="https://wa.me/51999999999"
+              href={whatsappUrl}
               rel="noreferrer"
               target="_blank"
             >
@@ -34,13 +45,16 @@ export function Footer() {
             </a>
             <a
               className="flex items-center gap-2 hover:text-cream"
-              href="https://instagram.com/auralith.pe"
+              href={instagramUrl}
               rel="noreferrer"
               target="_blank"
             >
               <Camera className="h-4 w-4 text-gold" />
-              @auralith.pe
+              {instagramLabel}
             </a>
+            {siteContent?.schedule ? (
+              <p className="text-cream-dark/55">{siteContent.schedule}</p>
+            ) : null}
           </div>
         </div>
 

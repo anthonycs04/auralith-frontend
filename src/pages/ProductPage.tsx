@@ -19,6 +19,7 @@ import { QuantityStepper } from '../components/ui/QuantityStepper'
 import { SectionTitle } from '../components/ui/SectionTitle'
 import { cn } from '../components/ui/utils'
 import { categories, intentions, products, type Product } from '../data'
+import { createWhatsAppUrl } from '../lib/contact'
 import { useCartStore, useCatalogStore } from '../store'
 
 type GalleryImage = {
@@ -439,6 +440,7 @@ function InfoPanel({ product }: { product: Product }) {
     product.intentionIds.includes(intention.id),
   )
   const addItem = useCartStore((state) => state.addItem)
+  const siteContent = useCatalogStore((state) => state.content)
   const isSoldOut = product.status === 'sold-out' || product.stock <= 0
   const ritualSummary = ''
   const energeticProperties = ''
@@ -527,6 +529,16 @@ function InfoPanel({ product }: { product: Product }) {
         <Button
           className="w-full text-white hover:scale-[1.01]"
           icon={<WhatsAppIcon />}
+          onClick={() =>
+            window.open(
+              createWhatsAppUrl(
+                siteContent?.whatsappNumber,
+                `Hola Auralith, quiero consultar por ${product.name}.`,
+              ),
+              '_blank',
+              'noopener,noreferrer',
+            )
+          }
           size="lg"
           variant="whatsapp"
         >

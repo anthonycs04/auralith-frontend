@@ -108,7 +108,16 @@ export function AdminContentPage() {
   const saveContent = async () => {
     setIsSaving(true)
     try {
-      await updateContent(content)
+      await updateContent({
+        ...content,
+        heroPrimaryButton: content.heroPrimaryButton.trim(),
+        heroSecondaryButton: content.heroSecondaryButton.trim(),
+        heroText: content.heroText.trim(),
+        instagramHandle: content.instagramHandle.trim(),
+        schedule: content.schedule.trim(),
+        storyText: content.storyText.trim(),
+        whatsappNumber: content.whatsappNumber.trim(),
+      })
       addToast({
         message: 'Los textos públicos se actualizaron correctamente.',
         title: 'Contenido guardado',

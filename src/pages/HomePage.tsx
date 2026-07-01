@@ -26,6 +26,7 @@ import { IntentionCard } from '../components/ui/IntentionCard'
 import { ProductCard, type ProductCardItem } from '../components/ui/ProductCard'
 import { SectionTitle } from '../components/ui/SectionTitle'
 import { cn } from '../components/ui/utils'
+import { createInstagramUrl, createWhatsAppUrl } from '../lib/contact'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -1100,7 +1101,11 @@ export function HomePage() {
           <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
             <Button
               onClick={() =>
-                window.open('https://wa.me/51999999999', '_blank', 'noopener,noreferrer')
+                window.open(
+                  createWhatsAppUrl(siteContent?.whatsappNumber),
+                  '_blank',
+                  'noopener,noreferrer',
+                )
               }
               size="lg"
               variant="whatsapp"
@@ -1109,7 +1114,11 @@ export function HomePage() {
             </Button>
             <Button
               onClick={() =>
-                window.open('https://instagram.com', '_blank', 'noopener,noreferrer')
+                window.open(
+                  createInstagramUrl(siteContent?.instagramHandle),
+                  '_blank',
+                  'noopener,noreferrer',
+                )
               }
               size="lg"
               variant="ghost"
