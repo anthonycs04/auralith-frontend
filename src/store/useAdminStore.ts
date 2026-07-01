@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { apiFetch } from '../lib/api'
+import { notifyCatalogChanged } from './useCatalogStore'
 
 export type AdminProductStatus = 'active' | 'draft' | 'hidden' | 'sold-out'
 export type AdminOrderStatus =
@@ -342,6 +343,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
         product.id === productId ? mapProduct(hiddenProduct) : product,
       ),
     }))
+    notifyCatalogChanged()
   },
   dismissToast: (toastId) =>
     set((state) => ({
@@ -353,10 +355,10 @@ export const useAdminStore = create<AdminState>((set, get) => ({
 
     try {
       const [apiProducts, orders, content, categories] = await Promise.all([
-        apiFetch<ApiProduct[]>('/admin/products', {}, true),
-        apiFetch<AdminOrder[]>('/admin/orders', {}, true),
-        apiFetch<AdminContent>('/admin/content', {}, true),
-        apiFetch<AdminCategory[]>('/admin/categories', {}, true),
+        apiFetch<ApiProduct[]>('/admin/products', { cache: 'no-store' }, true),
+        apiFetch<AdminOrder[]>('/admin/orders', { cache: 'no-store' }, true),
+        apiFetch<AdminContent>('/admin/content', { cache: 'no-store' }, true),
+        apiFetch<AdminCategory[]>('/admin/categories', { cache: 'no-store' }, true),
       ])
       set({
         categories,
@@ -457,6 +459,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
           )
         : [normalized, ...state.products],
     }))
+    notifyCatalogChanged()
     return normalized
   },
 }))

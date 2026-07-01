@@ -864,7 +864,7 @@ const currencyFormatter = new Intl.NumberFormat('es-PE', {
 })
 
 export function ShopPage() {
-  useCatalogStore((state) => state.version)
+  const catalogVersion = useCatalogStore((state) => state.version)
   const [searchParams, setSearchParams] = useSearchParams()
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
@@ -875,7 +875,10 @@ export function ShopPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const addItem = useCartStore((state) => state.addItem)
-  const filters = useMemo(() => parseFilters(searchParams), [searchParams])
+  const filters = useMemo(
+    () => parseFilters(searchParams),
+    [catalogVersion, searchParams],
+  )
   const filterSignature = searchParams.toString()
 
   const patchFilters = useCallback(
@@ -928,7 +931,7 @@ export function ShopPage() {
 
       return Number(b.isNew) - Number(a.isNew)
     })
-  }, [filters])
+  }, [catalogVersion, filters])
 
   const visibleCount =
     pagination.signature === filterSignature ? pagination.count : PAGE_SIZE
@@ -1057,7 +1060,7 @@ export function ShopPage() {
     }
 
     return pills
-  }, [filters, patchFilters])
+  }, [catalogVersion, filters, patchFilters])
 
   const breadcrumbSegments = useMemo(() => {
     const segments = ['Tienda']
@@ -1068,7 +1071,7 @@ export function ShopPage() {
     }
 
     return segments
-  }, [filters.categories])
+  }, [catalogVersion, filters.categories])
 
   const suggestedIntentions = filters.intentions.length
     ? intentions.filter((intention) => !filters.intentions.includes(intention.id)).slice(0, 3)

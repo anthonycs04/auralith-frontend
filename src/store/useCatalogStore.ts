@@ -13,6 +13,21 @@ import {
 import { apiFetch } from '../lib/api'
 import type { AdminContent } from './useAdminStore'
 
+export const CATALOG_REFRESH_EVENT = 'auralith:catalog-refresh'
+export const CATALOG_REFRESH_KEY = 'auralith-catalog-refresh-token'
+
+export function notifyCatalogChanged() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  const token = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  window.localStorage.setItem(CATALOG_REFRESH_KEY, token)
+  window.dispatchEvent(
+    new CustomEvent(CATALOG_REFRESH_EVENT, { detail: token }),
+  )
+}
+
 type ApiCategory = Omit<Category, 'id' | 'image' | 'intentionIds'> & {
   id: string
   imageUrl: string | null
@@ -193,10 +208,10 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     try {
       const [apiProducts, apiCategories, apiIntentions, content] =
         await Promise.all([
-          apiFetch<ApiProduct[]>('/catalog/products'),
-          apiFetch<ApiCategory[]>('/catalog/categories'),
-          apiFetch<ApiIntention[]>('/catalog/intentions'),
-          apiFetch<AdminContent>('/content'),
+          apiFetch<ApiProduct[]>('/catalog/products', { cache: 'no-store' }),
+          apiFetch<ApiCategory[]>('/catalog/categories', { cache: 'no-store' }),
+          apiFetch<ApiIntention[]>('/catalog/intentions', { cache: 'no-store' }),
+          apiFetch<AdminContent>('/content', { cache: 'no-store' }),
         ])
 
       products.splice(0, products.length, ...apiProducts.map(mapProduct))

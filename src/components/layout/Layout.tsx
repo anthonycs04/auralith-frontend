@@ -6,7 +6,11 @@ import { ScrollToTop } from '../ui/ScrollToTop'
 import { CookieConsent } from '../ui/CookieConsent'
 import { Footer } from './Footer'
 import { Header } from './Header'
-import { useCatalogStore } from '../../store'
+import {
+  CATALOG_REFRESH_EVENT,
+  CATALOG_REFRESH_KEY,
+  useCatalogStore,
+} from '../../store'
 
 export function Layout({ children }: PropsWithChildren) {
   const location = useLocation()
@@ -14,6 +18,28 @@ export function Layout({ children }: PropsWithChildren) {
 
   useEffect(() => {
     void hydrateCatalog()
+  }, [hydrateCatalog])
+
+  useEffect(() => {
+    const refreshCatalog = () => {
+      void hydrateCatalog()
+    }
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === CATALOG_REFRESH_KEY) {
+        refreshCatalog()
+      }
+    }
+
+    window.addEventListener(CATALOG_REFRESH_EVENT, refreshCatalog)
+    window.addEventListener('focus', refreshCatalog)
+    window.addEventListener('storage', handleStorage)
+
+    return () => {
+      window.removeEventListener(CATALOG_REFRESH_EVENT, refreshCatalog)
+      window.removeEventListener('focus', refreshCatalog)
+      window.removeEventListener('storage', handleStorage)
+    }
   }, [hydrateCatalog])
 
   useEffect(() => {

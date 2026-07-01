@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiFetch } from '../../lib/api'
 import { compressImageFile, formatFileSize } from '../../lib/imageCompression'
 import {
+  notifyCatalogChanged,
   useAdminStore,
   type AdminCategory,
   type AdminProduct,
@@ -747,6 +748,7 @@ export function AdminProductsPage() {
           return saved ?? product
         }),
       )
+      notifyCatalogChanged()
       addToast({
         message: `${dirtyIds.length} producto(s) se sincronizaron con Supabase.`,
         title: 'Edición masiva guardada',
@@ -806,6 +808,7 @@ export function AdminProductsPage() {
         ),
       )
       await hydrate()
+      notifyCatalogChanged()
       addToast({
         message: `${category.name} ya muestra la nueva foto en la tienda.`,
         title: 'Foto de categoria actualizada',
@@ -880,6 +883,7 @@ export function AdminProductsPage() {
 
       savedCategoryIds.current = currentIds
       await hydrate()
+      notifyCatalogChanged()
       setCategoriesDirty(false)
       addToast({
         message: `${categoryDrafts.length} categorías se sincronizaron con Supabase.`,
@@ -1177,6 +1181,7 @@ export function AdminProductsPage() {
                                 setDirtyIds((current) =>
                                   current.filter((id) => id !== product.id),
                                 )
+                                notifyCatalogChanged()
                                 addToast({
                                   message:
                                     nextStatus === 'hidden'
