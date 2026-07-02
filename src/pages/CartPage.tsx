@@ -21,6 +21,7 @@ type CheckoutForm = {
   address: string
   city: string
   deliveryType: DeliveryType
+  documentNumber: string
   fullName: string
   note: string
   phonePrefix: string
@@ -61,6 +62,7 @@ const initialForm: CheckoutForm = {
   address: '',
   city: '',
   deliveryType: 'Recojo en tienda',
+  documentNumber: '',
   fullName: '',
   note: '',
   phonePrefix: '+51',
@@ -150,6 +152,7 @@ function FloatingField({
   id,
   label,
   maxLength,
+  inputMode,
   onChange,
   rows = 4,
   type = 'text',
@@ -158,6 +161,7 @@ function FloatingField({
   error?: string
   id: keyof CheckoutForm
   label: string
+  inputMode?: 'decimal' | 'email' | 'numeric' | 'search' | 'tel' | 'text' | 'url'
   maxLength?: number
   onChange: (value: string) => void
   rows?: number
@@ -188,6 +192,8 @@ function FloatingField({
           <input
             className={cn(controlClassName, borderClassName)}
             id={id}
+            inputMode={inputMode}
+            maxLength={maxLength}
             onBlur={() => setFocused(false)}
             onChange={(event) => onChange(event.target.value)}
             onFocus={() => setFocused(true)}
@@ -379,6 +385,12 @@ function validateForm(form: CheckoutForm, hasItems: boolean): CheckoutErrors {
     errors.fullName = 'Ingresa tu nombre completo.'
   }
 
+  if (!form.documentNumber.trim()) {
+    errors.documentNumber = 'Ingresa tu DNI.'
+  } else if (form.documentNumber.replace(/\D/g, '').length !== 8) {
+    errors.documentNumber = 'El DNI debe tener 8 digitos.'
+  }
+
   if (!form.whatsapp.trim()) {
     errors.whatsapp = 'Ingresa tu número de WhatsApp.'
   } else if (form.whatsapp.replace(/\D/g, '').length < 7) {
@@ -428,6 +440,7 @@ function buildWhatsAppMessage({
     '',
     '*Datos del cliente:*',
     `Nombre: ${form.fullName.trim()}`,
+    `DNI: ${form.documentNumber.trim()}`,
     `WhatsApp: ${form.phonePrefix} ${form.whatsapp.trim()}`,
     `Ciudad: ${form.city.trim()}`,
     `Método de envío: ${getDeliveryLabel(form.deliveryType)}`,
@@ -575,6 +588,7 @@ export function CartPage() {
               : form.address.trim(),
           city: form.city.trim(),
           customerName: form.fullName.trim(),
+          documentNumber: form.documentNumber.replace(/\D/g, ''),
           items: items.map((item) => ({
             productId: item.id,
             quantity: item.quantity,
@@ -696,6 +710,17 @@ export function CartPage() {
                   label="Nombre completo"
                   onChange={(value) => setField('fullName', value)}
                   value={form.fullName}
+                />
+                <FloatingField
+                  error={errors.documentNumber}
+                  id="documentNumber"
+                  inputMode="numeric"
+                  label="DNI"
+                  maxLength={8}
+                  onChange={(value) =>
+                    setField('documentNumber', value.replace(/\D/g, '').slice(0, 8))
+                  }
+                  value={form.documentNumber}
                 />
                 <PhoneField
                   error={errors.whatsapp}

@@ -89,6 +89,7 @@ export type AdminOrder = {
   createdAt: string
   customer: string
   deliveryType: ShippingMethod
+  documentNumber?: string | null
   id: string
   items: AdminOrderItem[]
   note?: string
@@ -301,6 +302,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
           body: JSON.stringify({
             city: order.city,
             customerName: order.customer,
+            documentNumber: order.documentNumber,
             items: order.items.map((item) => ({
               productId: item.productId,
               quantity: item.quantity,

@@ -136,10 +136,11 @@ function downloadOrderInfo(order: AdminOrder) {
   doc.setFontSize(8)
   doc.setTextColor(61, 61, 61)
   doc.text(`WhatsApp: ${order.whatsapp || 'No registrado'}`, 10, y + 2)
-  doc.text(`Ciudad: ${order.city}`, 10, y + 7)
-  doc.text(`Envío: ${order.deliveryType}`, 10, y + 12)
-  doc.text(`Estado: ${orderStatusLabels[order.status]}`, 10, y + 17)
-  doc.text(`Fecha: ${createdLabel}`, 10, y + 22)
+  doc.text(`DNI: ${order.documentNumber || 'No registrado'}`, 10, y + 7)
+  doc.text(`Ciudad: ${order.city}`, 10, y + 12)
+  doc.text(`Envio: ${order.deliveryType}`, 10, y + 17)
+  doc.text(`Estado: ${orderStatusLabels[order.status]}`, 10, y + 22)
+  doc.text(`Fecha: ${createdLabel}`, 10, y + 27)
 
   doc.setFillColor(250, 248, 243)
   doc.roundedRect(10, 73, 80, 35, 2, 2, 'F')
@@ -386,6 +387,7 @@ function ManualOrderBuilder({
 }) {
   const [source, setSource] = useState<Exclude<AdminOrderSource, 'web'>>('tiktok')
   const [customer, setCustomer] = useState('')
+  const [documentNumber, setDocumentNumber] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
   const [city, setCity] = useState('')
   const [deliveryType, setDeliveryType] =
@@ -423,6 +425,7 @@ function ManualOrderBuilder({
       createdAt: new Date().toISOString(),
       customer: customer.trim() || 'Venta mostrador',
       deliveryType: isStore ? 'Recojo en tienda' : deliveryType,
+      documentNumber: documentNumber.trim() || undefined,
       id: `${source}-${sequence}`,
       items,
       note: note.trim() || undefined,
@@ -434,6 +437,7 @@ function ManualOrderBuilder({
 
     if (await onCreate(order)) {
       setCustomer('')
+      setDocumentNumber('')
       setWhatsapp('')
       setCity('')
       setDeliveryType('Recojo en tienda')
@@ -508,6 +512,16 @@ function ManualOrderBuilder({
           onChange={(event) => setWhatsapp(event.target.value)}
           placeholder="WhatsApp (opcional)"
           value={whatsapp}
+        />
+        <input
+          className="h-11 rounded-xl border border-white/10 bg-[#191919] px-4 font-body text-sm text-cream outline-none focus:border-gold"
+          inputMode="numeric"
+          maxLength={8}
+          onChange={(event) =>
+            setDocumentNumber(event.target.value.replace(/\D/g, '').slice(0, 8))
+          }
+          placeholder="DNI (opcional)"
+          value={documentNumber}
         />
         <input
           className="h-11 rounded-xl border border-white/10 bg-[#191919] px-4 font-body text-sm text-cream outline-none focus:border-gold"
@@ -754,6 +768,15 @@ function OrderDetailPanel({
           </div>
           <div className="rounded-xl border border-white/10 bg-[#191919] p-3">
             <p className="flex items-center gap-2 font-body text-xs uppercase tracking-widest text-cream-dark/45">
+              <ClipboardList className="h-3.5 w-3.5" />
+              DNI
+            </p>
+            <p className="mt-2 font-body text-sm text-cream">
+              {order.documentNumber || 'No registrado'}
+            </p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-[#191919] p-3">
+            <p className="flex items-center gap-2 font-body text-xs uppercase tracking-widest text-cream-dark/45">
               <MapPin className="h-3.5 w-3.5" />
               Ciudad
             </p>
@@ -906,6 +929,7 @@ export function AdminOrdersPage() {
       [
         order.code,
         order.customer,
+        order.documentNumber ?? '',
         order.whatsapp,
         order.city,
         order.deliveryType,
@@ -1074,7 +1098,9 @@ export function AdminOrdersPage() {
                           {order.customer}
                         </p>
                         <p className="mt-1 font-body text-xs text-cream-dark/45">
-                          {order.city}
+                          {order.documentNumber
+                            ? `DNI ${order.documentNumber} - ${order.city}`
+                            : order.city}
                         </p>
                       </td>
                       <td className="px-5 py-4">
