@@ -1,21 +1,8 @@
 export type CurrencyCode = 'PEN'
 
-export type CategoryId =
-  | 'crystals-minerals'
-  | 'sahumos-aromas'
-  | 'ritual-kits'
-  | 'home-altar'
-  | 'energetic-jewelry'
-  | 'oracles-guides'
-  | 'holistic-care'
+export type CategoryId = string
 
-export type IntentionId =
-  | 'self-love'
-  | 'energy-cleansing'
-  | 'protection'
-  | 'abundance'
-  | 'calm-sleep'
-  | 'clarity-focus'
+export type IntentionId = string
 
 export type ProductStatus = 'available' | 'low-stock' | 'sold-out' | 'preorder'
 
@@ -56,10 +43,24 @@ export type Intention = {
   description: string
   icon: string
   id: IntentionId
+  image?: string
   name: string
   recommendedProductIds: string[]
   relatedCategoryIds: CategoryId[]
   ritualPrompt: string
+  seo: SeoMeta
+  slug: string
+  sortOrder: number
+}
+
+export type Subcategory = {
+  active: boolean
+  categoryId: CategoryId
+  categorySlug: string
+  description: string
+  id: string
+  name: string
+  productCount: number
   seo: SeoMeta
   slug: string
   sortOrder: number
@@ -106,6 +107,7 @@ export type Product = {
   slug: string
   status: ProductStatus
   stock: number
+  subcategoryIds: string[]
   subtitle: string
   sustainability: {
     impact: string

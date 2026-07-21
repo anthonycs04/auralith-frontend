@@ -68,6 +68,14 @@ function makeOrderItem(product: AdminProduct): AdminOrderItem {
   }
 }
 
+function normalizeSearch(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
 function writePdfText(
   doc: jsPDF,
   text: string,
@@ -324,37 +332,64 @@ function ProductPicker({
   products: AdminProduct[]
 }) {
   const availableProducts = products.filter((product) => product.stock > 0)
+  const [query, setQuery] = useState('')
   const [selectedProductId, setSelectedProductId] = useState(
     availableProducts[0]?.id ?? '',
   )
-  const effectiveSelectedProductId = availableProducts.some(
+  const normalizedQuery = normalizeSearch(query)
+  const filteredProducts = availableProducts.filter((product) => {
+    if (!normalizedQuery) return true
+
+    return normalizeSearch(
+      [product.name, product.sku, product.tags.join(' ')].join(' '),
+    ).includes(normalizedQuery)
+  })
+  const visibleProducts = filteredProducts.slice(0, normalizedQuery ? 80 : 35)
+  const effectiveSelectedProductId = visibleProducts.some(
     (product) => product.id === selectedProductId,
   )
     ? selectedProductId
-    : availableProducts[0]?.id ?? ''
+    : visibleProducts[0]?.id ?? ''
 
-  const selectedProduct = availableProducts.find(
+  const selectedProduct = visibleProducts.find(
     (product) => product.id === effectiveSelectedProductId,
   )
 
   return (
-    <div
-      className={cn(
-        'grid min-w-0 gap-2',
-        compact
-          ? 'grid-cols-[minmax(0,1fr)_44px]'
-          : 'sm:grid-cols-[minmax(0,1fr)_auto]',
-      )}
-    >
+    <div className="grid min-w-0 gap-2">
+      <label className="relative block min-w-0">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-cream-dark/45" />
+        <input
+          className={cn(
+            'h-11 w-full min-w-0 rounded-xl border border-white/10 bg-[#191919] pl-10 pr-3 font-body text-cream outline-none transition-colors placeholder:text-cream-dark/35 focus:border-gold',
+            compact ? 'text-xs' : 'text-sm',
+          )}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={
+            compact ? 'Buscar producto' : 'Buscar producto por nombre, SKU o etiqueta'
+          }
+          value={query}
+        />
+      </label>
+      <div
+        className={cn(
+          'grid min-w-0 gap-2',
+          compact
+            ? 'grid-cols-[minmax(0,1fr)_44px]'
+            : 'sm:grid-cols-[minmax(0,1fr)_auto]',
+        )}
+      >
       <select
         className={cn(
-          'h-11 w-full min-w-0 rounded-xl border border-white/10 bg-[#191919] font-body text-cream outline-none focus:border-gold',
+          'h-11 w-full min-w-0 rounded-xl border border-white/10 bg-[#191919] font-body text-cream outline-none focus:border-gold disabled:opacity-50',
           compact ? 'px-3 text-xs' : 'px-4 text-sm',
         )}
+        disabled={!visibleProducts.length}
         onChange={(event) => setSelectedProductId(event.target.value)}
         value={effectiveSelectedProductId}
       >
-        {availableProducts.map((product) => (
+        {!visibleProducts.length ? <option value="">Sin resultados</option> : null}
+        {visibleProducts.map((product) => (
           <option key={product.id} value={product.id}>
             {product.name} · Stock {product.stock} ·{' '}
             {currencyFormatter.format(product.offerPrice ?? product.price)}
@@ -374,6 +409,13 @@ function ProductPicker({
         <Plus className="h-4 w-4" />
         {compact ? null : 'Agregar'}
       </button>
+      </div>
+      {availableProducts.length > visibleProducts.length ? (
+        <p className="font-body text-[11px] text-cream-dark/45">
+          Mostrando {visibleProducts.length} de {filteredProducts.length} resultados.
+          Escribe para encontrar productos mas rapido.
+        </p>
+      ) : null}
     </div>
   )
 }

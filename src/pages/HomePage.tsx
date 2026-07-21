@@ -810,7 +810,7 @@ export function HomePage() {
               >
                 <IntentionCard
                   href={`/tienda?intencion=${intention.slug}`}
-                  image={intentionVisuals[intention.id]}
+                  image={intention.image || intentionVisuals[intention.id]}
                   name={intention.name}
                   phrase={intention.affirmation}
                 />

@@ -16,6 +16,7 @@ export {
 export type {
   AdminContent,
   AdminCategory,
+  AdminIntention,
   AdminOrder,
   AdminOrderItem,
   AdminOrderSource,
@@ -23,6 +24,7 @@ export type {
   AdminProduct,
   AdminProductImage,
   AdminProductStatus,
+  AdminSubcategory,
   AdminToast,
   OrderMutationResult,
   ShippingMethod,

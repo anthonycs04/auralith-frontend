@@ -22,13 +22,15 @@ import {
   notifyCatalogChanged,
   useAdminStore,
   type AdminCategory,
+  type AdminIntention,
   type AdminProduct,
   type AdminProductImage,
   type AdminProductStatus,
+  type AdminSubcategory,
 } from '../../store'
 import { cn } from '../../components/ui/utils'
 
-type CatalogTab = 'bulk' | 'categories'
+type CatalogTab = 'bulk' | 'categories' | 'subcategories' | 'intentions'
 type CategoryDraft = {
   active: boolean
   accentColor: string
@@ -42,6 +44,37 @@ type CategoryDraft = {
   productCount: number
   seo: AdminCategory['seo']
   shortName: string
+  slug: string
+  sortOrder: number
+}
+
+type SubcategoryDraft = {
+  active: boolean
+  categoryId: string
+  categorySlug: string
+  description: string
+  id: string
+  name: string
+  productCount: number
+  seo: AdminSubcategory['seo']
+  slug: string
+  sortOrder: number
+}
+
+type IntentionDraft = {
+  active: boolean
+  affirmation: string
+  benefits: string[]
+  color: string
+  description: string
+  icon: string
+  id: string
+  imageUrl: string | null
+  name: string
+  recommendedProductIds: string[]
+  relatedCategoryIds: string[]
+  ritualPrompt: string
+  seo: AdminIntention['seo']
   slug: string
   sortOrder: number
 }
@@ -131,6 +164,94 @@ function createEmptyCategoryDraft(sortOrder: number): CategoryDraft {
   }
 }
 
+function toSubcategoryDraft(subcategory: AdminSubcategory): SubcategoryDraft {
+  return {
+    active: subcategory.active,
+    categoryId: subcategory.categoryId,
+    categorySlug: subcategory.categorySlug,
+    description: subcategory.description,
+    id: subcategory.id,
+    name: subcategory.name,
+    productCount: subcategory.productCount,
+    seo: subcategory.seo,
+    slug: subcategory.slug,
+    sortOrder: subcategory.sortOrder,
+  }
+}
+
+function createEmptySubcategoryDraft(
+  categoryId: string,
+  categorySlug: string,
+  sortOrder: number,
+): SubcategoryDraft {
+  const name = 'Nueva subcategoria'
+  const slug = `subcategoria-${Date.now()}`
+
+  return {
+    active: true,
+    categoryId,
+    categorySlug,
+    description: '',
+    id: `sub-${Date.now()}`,
+    name,
+    productCount: 0,
+    seo: {
+      description: name,
+      keywords: [name],
+      title: `${name} | Auralith`,
+    },
+    slug,
+    sortOrder,
+  }
+}
+
+function toIntentionDraft(intention: AdminIntention): IntentionDraft {
+  return {
+    active: intention.active,
+    affirmation: intention.affirmation,
+    benefits: intention.benefits,
+    color: intention.color,
+    description: intention.description,
+    icon: intention.icon,
+    id: intention.id,
+    imageUrl: intention.imageUrl,
+    name: intention.name,
+    recommendedProductIds: intention.recommendedProductIds,
+    relatedCategoryIds: intention.relatedCategoryIds,
+    ritualPrompt: intention.ritualPrompt,
+    seo: intention.seo,
+    slug: intention.slug,
+    sortOrder: intention.sortOrder,
+  }
+}
+
+function createEmptyIntentionDraft(sortOrder: number): IntentionDraft {
+  const name = 'Nueva intencion'
+  const slug = `intencion-${Date.now()}`
+
+  return {
+    active: true,
+    affirmation: '',
+    benefits: [],
+    color: '#8FA58C',
+    description: '',
+    icon: 'sparkles',
+    id: `int-${Date.now()}`,
+    imageUrl: '',
+    name,
+    recommendedProductIds: [],
+    relatedCategoryIds: [],
+    ritualPrompt: '',
+    seo: {
+      description: name,
+      keywords: [name],
+      title: `${name} | Auralith`,
+    },
+    slug,
+    sortOrder,
+  }
+}
+
 function createSkuSeed() {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`
     .toUpperCase()
@@ -188,16 +309,20 @@ function AdminTextInput({
 
 function ProductEditorDrawer({
   categoryOptions,
+  intentionOptions,
   onClose,
   onSaved,
   open,
   product,
+  subcategoryOptions,
 }: {
   categoryOptions: CategoryDraft[]
+  intentionOptions: IntentionDraft[]
   onClose: () => void
   onSaved: (product: AdminProduct) => void
   open: boolean
   product: AdminProduct | null
+  subcategoryOptions: SubcategoryDraft[]
 }) {
   const addToast = useAdminStore((state) => state.addToast)
   const upsertProduct = useAdminStore((state) => state.upsertProduct)
@@ -207,6 +332,8 @@ function ProductEditorDrawer({
   const [offerPrice, setOfferPrice] = useState('')
   const [stock, setStock] = useState('0')
   const [categoryId, setCategoryId] = useState<string>('')
+  const [intentionIds, setIntentionIds] = useState<string[]>([])
+  const [subcategoryIds, setSubcategoryIds] = useState<string[]>([])
   const [status, setStatus] = useState<AdminProductStatus>('active')
   const [shortDescription, setShortDescription] = useState('')
   const [description, setDescription] = useState('')
@@ -220,6 +347,11 @@ function ProductEditorDrawer({
   const availableCategories = categoryOptions.filter((category) => category.active)
   const firstCategoryId = availableCategories[0]?.id ?? ''
   const selectedCategoryId = categoryId || firstCategoryId
+  const availableSubcategories = subcategoryOptions.filter(
+    (subcategory) =>
+      subcategory.active && subcategory.categoryId === selectedCategoryId,
+  )
+  const availableIntentions = intentionOptions.filter((intention) => intention.active)
   const sku =
     product?.sku ?? generateSku(name, selectedCategoryId, skuSeed, categoryOptions)
 
@@ -236,6 +368,8 @@ function ProductEditorDrawer({
         setOfferPrice(product.offerPrice ? String(product.offerPrice) : '')
         setStock(String(product.stock))
         setCategoryId(product.categoryId)
+        setIntentionIds(product.intentionIds)
+        setSubcategoryIds(product.subcategoryIds)
         setStatus(product.status)
         setShortDescription(product.shortDescription)
         setDescription(product.description)
@@ -255,6 +389,8 @@ function ProductEditorDrawer({
       setOfferPrice('')
       setStock('0')
       setCategoryId(firstCategoryId)
+      setIntentionIds([])
+      setSubcategoryIds([])
       setStatus('active')
       setShortDescription('')
       setDescription('')
@@ -266,6 +402,17 @@ function ProductEditorDrawer({
 
     return () => window.cancelAnimationFrame(frame)
   }, [firstCategoryId, open, product])
+
+  useEffect(() => {
+    setSubcategoryIds((current) =>
+      current.filter((id) =>
+        subcategoryOptions.some(
+          (subcategory) =>
+            subcategory.id === id && subcategory.categoryId === selectedCategoryId,
+        ),
+      ),
+    )
+  }, [selectedCategoryId, subcategoryOptions])
 
   const saveProduct = async () => {
     const numericPrice = Number(price)
@@ -320,6 +467,7 @@ function ProductEditorDrawer({
         id,
         imageRecords: existingImages,
         images: existingImages.map((image) => image.src),
+        intentionIds,
         name: name.trim(),
         offerPrice: numericOfferPrice,
         price: numericPrice,
@@ -330,6 +478,7 @@ function ProductEditorDrawer({
         slug: normalizedSlug,
         status,
         stock: numericStock,
+        subcategoryIds,
         tags: normalizeTags(tagsText),
       })
 
@@ -555,6 +704,90 @@ function ProductEditorDrawer({
                     ))}
                   </select>
                 </label>
+                <div className="sm:col-span-2">
+                  <span className="mb-2 block font-body text-xs font-semibold uppercase tracking-widest text-cream-dark/55">
+                    Subcategorias
+                  </span>
+                  {availableSubcategories.length ? (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {availableSubcategories.map((subcategory) => {
+                        const checked = subcategoryIds.includes(subcategory.id)
+
+                        return (
+                          <button
+                            className={cn(
+                              'flex min-h-11 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left font-body text-sm transition-colors',
+                              checked
+                                ? 'border-gold bg-gold/10 text-gold'
+                                : 'border-white/10 bg-[#191919] text-cream-dark hover:border-gold/35 hover:text-cream',
+                            )}
+                            key={subcategory.id}
+                            onClick={() =>
+                              setSubcategoryIds((current) =>
+                                checked
+                                  ? current.filter((id) => id !== subcategory.id)
+                                  : [...current, subcategory.id],
+                              )
+                            }
+                            type="button"
+                          >
+                            <span>{subcategory.name}</span>
+                            <Check className={cn('h-4 w-4', !checked && 'opacity-0')} />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-white/10 bg-[#191919] px-4 py-3 font-body text-sm text-cream-dark/55">
+                      Aun no hay subcategorias activas para esta categoria.
+                    </div>
+                  )}
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="mb-2 block font-body text-xs font-semibold uppercase tracking-widest text-cream-dark/55">
+                    Intenciones
+                  </span>
+                  {availableIntentions.length ? (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {availableIntentions.map((intention) => {
+                        const checked = intentionIds.includes(intention.id)
+
+                        return (
+                          <button
+                            className={cn(
+                              'flex min-h-11 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left font-body text-sm transition-colors',
+                              checked
+                                ? 'border-sage bg-sage/10 text-sage-light'
+                                : 'border-white/10 bg-[#191919] text-cream-dark hover:border-sage/35 hover:text-cream',
+                            )}
+                            key={intention.id}
+                            onClick={() =>
+                              setIntentionIds((current) =>
+                                checked
+                                  ? current.filter((id) => id !== intention.id)
+                                  : [...current, intention.id],
+                              )
+                            }
+                            type="button"
+                          >
+                            <span className="inline-flex items-center gap-2">
+                              <span
+                                className="h-2.5 w-2.5 rounded-full"
+                                style={{ backgroundColor: intention.color }}
+                              />
+                              {intention.name}
+                            </span>
+                            <Check className={cn('h-4 w-4', !checked && 'opacity-0')} />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-white/10 bg-[#191919] px-4 py-3 font-body text-sm text-cream-dark/55">
+                      Crea intenciones desde la pestaña de intenciones para asignarlas aqui.
+                    </div>
+                  )}
+                </div>
                 <label className="block sm:col-span-2">
                   <span className="mb-2 block font-body text-xs font-semibold uppercase tracking-widest text-cream-dark/55">
                     Categoría
@@ -647,6 +880,8 @@ function ProductEditorDrawer({
 export function AdminProductsPage() {
   const products = useAdminStore((state) => state.products)
   const adminCategories = useAdminStore((state) => state.categories)
+  const adminIntentions = useAdminStore((state) => state.intentions)
+  const adminSubcategories = useAdminStore((state) => state.subcategories)
   const hydrate = useAdminStore((state) => state.hydrate)
   const upsertProduct = useAdminStore((state) => state.upsertProduct)
   const deleteProduct = useAdminStore((state) => state.deleteProduct)
@@ -660,13 +895,42 @@ export function AdminProductsPage() {
   const [editorOpen, setEditorOpen] = useState(false)
   const [categoryDrafts, setCategoryDrafts] = useState<CategoryDraft[]>([])
   const [categoriesDirty, setCategoriesDirty] = useState(false)
+  const [intentionDrafts, setIntentionDrafts] = useState<IntentionDraft[]>([])
+  const [intentionsDirty, setIntentionsDirty] = useState(false)
+  const [subcategoryDrafts, setSubcategoryDrafts] = useState<SubcategoryDraft[]>([])
+  const [subcategoriesDirty, setSubcategoriesDirty] = useState(false)
   const [uploadingCategoryId, setUploadingCategoryId] = useState<string | null>(null)
+  const [uploadingIntentionId, setUploadingIntentionId] = useState<string | null>(null)
   const savedCategoryIds = useRef<Set<string>>(new Set())
+  const savedIntentionIds = useRef<Set<string>>(new Set())
+  const savedSubcategoryIds = useRef<Set<string>>(new Set())
   const productCountByCategory = useMemo(() => {
     const counts = new Map<string, number>()
 
     for (const product of products) {
       counts.set(product.categoryId, (counts.get(product.categoryId) ?? 0) + 1)
+    }
+
+    return counts
+  }, [products])
+  const productCountBySubcategory = useMemo(() => {
+    const counts = new Map<string, number>()
+
+    for (const product of products) {
+      for (const subcategoryId of product.subcategoryIds) {
+        counts.set(subcategoryId, (counts.get(subcategoryId) ?? 0) + 1)
+      }
+    }
+
+    return counts
+  }, [products])
+  const productCountByIntention = useMemo(() => {
+    const counts = new Map<string, number>()
+
+    for (const product of products) {
+      for (const intentionId of product.intentionIds) {
+        counts.set(intentionId, (counts.get(intentionId) ?? 0) + 1)
+      }
     }
 
     return counts
@@ -679,6 +943,25 @@ export function AdminProductsPage() {
       })),
     [categoryDrafts, productCountByCategory],
   )
+  const subcategoryOptions = useMemo(
+    () =>
+      subcategoryDrafts.map((subcategory) => ({
+        ...subcategory,
+        productCount: productCountBySubcategory.get(subcategory.id) ?? 0,
+      })),
+    [productCountBySubcategory, subcategoryDrafts],
+  )
+  const intentionOptions = useMemo(
+    () =>
+      intentionDrafts.map((intention) => ({
+        ...intention,
+        recommendedProductIds: Array.from(
+          { length: productCountByIntention.get(intention.id) ?? 0 },
+          (_, index) => `${intention.id}-${index}`,
+        ),
+      })),
+    [intentionDrafts, productCountByIntention],
+  )
 
   useEffect(() => {
     if (categoriesDirty) return
@@ -686,6 +969,24 @@ export function AdminProductsPage() {
     setCategoryDrafts(adminCategories.map(toCategoryDraft))
     savedCategoryIds.current = new Set(adminCategories.map((category) => category.id))
   }, [adminCategories, categoriesDirty])
+
+  useEffect(() => {
+    if (subcategoriesDirty) return
+
+    setSubcategoryDrafts(adminSubcategories.map(toSubcategoryDraft))
+    savedSubcategoryIds.current = new Set(
+      adminSubcategories.map((subcategory) => subcategory.id),
+    )
+  }, [adminSubcategories, subcategoriesDirty])
+
+  useEffect(() => {
+    if (intentionsDirty) return
+
+    setIntentionDrafts(adminIntentions.map(toIntentionDraft))
+    savedIntentionIds.current = new Set(
+      adminIntentions.map((intention) => intention.id),
+    )
+  }, [adminIntentions, intentionsDirty])
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -777,6 +1078,34 @@ export function AdminProductsPage() {
     )
   }
 
+  const updateSubcategory = <Key extends keyof SubcategoryDraft>(
+    subcategoryId: string,
+    key: Key,
+    value: SubcategoryDraft[Key],
+  ) => {
+    setSubcategoriesDirty(true)
+    setSubcategoryDrafts((current) =>
+      current.map((subcategory) =>
+        subcategory.id === subcategoryId
+          ? { ...subcategory, [key]: value }
+          : subcategory,
+      ),
+    )
+  }
+
+  const updateIntention = <Key extends keyof IntentionDraft>(
+    intentionId: string,
+    key: Key,
+    value: IntentionDraft[Key],
+  ) => {
+    setIntentionsDirty(true)
+    setIntentionDrafts((current) =>
+      current.map((intention) =>
+        intention.id === intentionId ? { ...intention, [key]: value } : intention,
+      ),
+    )
+  }
+
   const uploadCategoryImage = async (category: CategoryDraft, file: File) => {
     if (!savedCategoryIds.current.has(category.id)) {
       addToast({
@@ -830,6 +1159,64 @@ export function AdminProductsPage() {
       })
     } finally {
       setUploadingCategoryId(null)
+    }
+  }
+
+  const uploadIntentionImage = async (intention: IntentionDraft, file: File) => {
+    if (!savedIntentionIds.current.has(intention.id)) {
+      addToast({
+        message: 'Guarda la intencion antes de subirle una foto.',
+        title: 'Intencion pendiente',
+        variant: 'warning',
+      })
+      return
+    }
+
+    setUploadingIntentionId(intention.id)
+
+    try {
+      const compressed = await compressImageFile(file)
+      const formData = new FormData()
+      formData.set('file', compressed.file)
+
+      const uploaded = await apiFetch<{
+        imageUrl: string
+      }>(
+        `/admin/intentions/${intention.id}/image`,
+        { body: formData, method: 'POST' },
+        true,
+      )
+
+      setIntentionDrafts((current) =>
+        current.map((item) =>
+          item.id === intention.id
+            ? { ...item, imageUrl: uploaded.imageUrl }
+            : item,
+        ),
+      )
+      await hydrate()
+      notifyCatalogChanged()
+      addToast({
+        message: `${intention.name} ya muestra la nueva foto en la tienda.`,
+        title: 'Foto de intencion actualizada',
+        variant: 'success',
+      })
+
+      if (compressed.savedBytes > 0) {
+        addToast({
+          message: `Se redujo ${formatFileSize(compressed.savedBytes)} antes de subir a Supabase.`,
+          title: 'Imagen optimizada',
+          variant: 'success',
+        })
+      }
+    } catch (error) {
+      addToast({
+        message: error instanceof Error ? error.message : 'No se pudo subir la foto.',
+        title: 'Error en foto de intencion',
+        variant: 'error',
+      })
+    } finally {
+      setUploadingIntentionId(null)
     }
   }
 
@@ -899,6 +1286,151 @@ export function AdminProductsPage() {
     }
   }
 
+  const saveSubcategories = async () => {
+    try {
+      const currentIds = new Set(subcategoryDrafts.map((subcategory) => subcategory.id))
+      const deletedIds = [...savedSubcategoryIds.current].filter(
+        (subcategoryId) => !currentIds.has(subcategoryId),
+      )
+
+      for (const subcategoryId of deletedIds) {
+        await apiFetch(
+          `/admin/subcategories/${subcategoryId}`,
+          { method: 'DELETE' },
+          true,
+        )
+      }
+
+      for (const draft of subcategoryDrafts) {
+        const source = adminSubcategories.find(
+          (subcategory) => subcategory.id === draft.id,
+        )
+        const category = categoryOptions.find(
+          (categoryItem) => categoryItem.id === draft.categoryId,
+        )
+        const slug = source?.slug ?? draft.slug ?? slugify(draft.name) ?? draft.id
+        const exists = savedSubcategoryIds.current.has(draft.id)
+
+        if (!draft.name.trim() || !draft.categoryId) {
+          throw new Error('Cada subcategoria necesita nombre y categoria.')
+        }
+
+        await apiFetch(
+          exists ? `/admin/subcategories/${draft.id}` : '/admin/subcategories',
+          {
+            body: JSON.stringify({
+              active: draft.active,
+              categoryId: draft.categoryId,
+              description: draft.description || source?.description || '',
+              id: draft.id,
+              name: draft.name,
+              seo: draft.seo ?? source?.seo ?? {
+                description: draft.name,
+                keywords: [draft.name, category?.name ?? 'Auralith'],
+                title: `${draft.name} | Auralith`,
+              },
+              slug,
+              sortOrder: draft.sortOrder,
+            }),
+            method: exists ? 'PUT' : 'POST',
+          },
+          true,
+        )
+      }
+
+      savedSubcategoryIds.current = currentIds
+      await hydrate()
+      notifyCatalogChanged()
+      setSubcategoriesDirty(false)
+      addToast({
+        message: `${subcategoryDrafts.length} subcategorias se sincronizaron con Supabase.`,
+        title: 'Subcategorias guardadas',
+        variant: 'success',
+      })
+    } catch (error) {
+      addToast({
+        message: error instanceof Error ? error.message : 'No se pudo guardar.',
+        title: 'Error en subcategorias',
+        variant: 'error',
+      })
+    }
+  }
+
+  const saveIntentions = async () => {
+    try {
+      const currentIds = new Set(intentionDrafts.map((intention) => intention.id))
+      const deletedIds = [...savedIntentionIds.current].filter(
+        (intentionId) => !currentIds.has(intentionId),
+      )
+
+      for (const intentionId of deletedIds) {
+        await apiFetch(
+          `/admin/intentions/${intentionId}`,
+          { method: 'DELETE' },
+          true,
+        )
+      }
+
+      for (const draft of intentionDrafts) {
+        const source = adminIntentions.find((intention) => intention.id === draft.id)
+        const slug = source?.slug ?? draft.slug ?? slugify(draft.name) ?? draft.id
+        const exists = savedIntentionIds.current.has(draft.id)
+
+        if (!draft.name.trim()) {
+          throw new Error('Cada intencion necesita un nombre.')
+        }
+
+        await apiFetch(
+          exists ? `/admin/intentions/${draft.id}` : '/admin/intentions',
+          {
+            body: JSON.stringify({
+              active: draft.active,
+              affirmation: draft.affirmation || source?.affirmation || '',
+              benefits: draft.benefits ?? source?.benefits ?? [],
+              color: draft.color || source?.color || '#8FA58C',
+              description: draft.description || source?.description || '',
+              icon: draft.icon || source?.icon || 'sparkles',
+              id: draft.id,
+              imageUrl: draft.imageUrl ?? source?.imageUrl ?? '',
+              name: draft.name,
+              ritualPrompt: draft.ritualPrompt || source?.ritualPrompt || '',
+              seo: draft.seo ?? source?.seo ?? {
+                description: draft.name,
+                keywords: [draft.name],
+                title: `${draft.name} | Auralith`,
+              },
+              slug,
+              sortOrder: draft.sortOrder,
+            }),
+            method: exists ? 'PUT' : 'POST',
+          },
+          true,
+        )
+      }
+
+      savedIntentionIds.current = currentIds
+      await hydrate()
+      notifyCatalogChanged()
+      setIntentionsDirty(false)
+      addToast({
+        message: `${intentionDrafts.length} intenciones se sincronizaron con Supabase.`,
+        title: 'Intenciones guardadas',
+        variant: 'success',
+      })
+    } catch (error) {
+      addToast({
+        message: error instanceof Error ? error.message : 'No se pudo guardar.',
+        title: 'Error en intenciones',
+        variant: 'error',
+      })
+    }
+  }
+
+  const saveCategoryTree = async () => {
+    await saveCategories()
+    await saveSubcategories()
+  }
+
   return (
     <div className="px-5 py-6 md:px-8 md:py-8">
       <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
@@ -941,6 +1473,7 @@ export function AdminProductsPage() {
         {[
           { id: 'bulk', label: 'Edición masiva', icon: SlidersHorizontal },
           { id: 'categories', label: 'Categorías', icon: Layers3 },
+          { id: 'intentions', label: 'Intenciones', icon: Sparkles },
         ].map((tab) => {
           const Icon = tab.icon
           const selected = activeTab === tab.id
@@ -1052,9 +1585,10 @@ export function AdminProductsPage() {
                       <td className="px-5 py-4">
                         <select
                           className="h-10 w-40 rounded-xl border border-white/10 bg-[#191919] px-3 font-body text-sm text-cream outline-none focus:border-gold"
-                          onChange={(event) =>
+                          onChange={(event) => {
                             patchProduct(product.id, 'categoryId', event.target.value)
-                          }
+                            patchProduct(product.id, 'subcategoryIds', [])
+                          }}
                           value={product.categoryId}
                         >
                           {categoryOptions.map((category) => (
@@ -1353,6 +1887,154 @@ export function AdminProductsPage() {
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
+                    <div className="rounded-xl border border-white/10 bg-[#191919] p-4 md:col-span-6">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="font-body text-[11px] font-semibold uppercase tracking-widest text-gold">
+                            Subcategorias de {category.name}
+                          </p>
+                          <p className="mt-1 font-body text-xs text-cream-dark/55">
+                            Estas opciones viven dentro de esta categoria y refinan el filtro.
+                          </p>
+                        </div>
+                        <button
+                          className="inline-flex h-9 items-center justify-center gap-2 rounded-full border border-gold/40 px-4 font-body text-xs text-gold transition-colors hover:bg-gold/10"
+                          onClick={() => {
+                            setSubcategoriesDirty(true)
+                            setSubcategoryDrafts((current) => [
+                              ...current,
+                              createEmptySubcategoryDraft(
+                                category.id,
+                                category.slug,
+                                current.filter((item) => item.categoryId === category.id)
+                                  .length + 1,
+                              ),
+                            ])
+                          }}
+                          type="button"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Agregar subcategoria
+                        </button>
+                      </div>
+
+                      <div className="mt-4 space-y-2">
+                        {subcategoryOptions
+                          .filter(
+                            (subcategory) => subcategory.categoryId === category.id,
+                          )
+                          .sort((a, b) => a.sortOrder - b.sortOrder)
+                          .map((subcategory) => (
+                            <div
+                              className="grid gap-2 rounded-xl border border-white/5 bg-[#202020] p-3 lg:grid-cols-[72px_minmax(0,1fr)_minmax(0,1fr)_104px_106px_auto]"
+                              key={subcategory.id}
+                            >
+                              <input
+                                className="h-10 rounded-xl border border-white/10 bg-[#151515] px-3 font-body text-sm text-cream outline-none focus:border-gold"
+                                onChange={(event) =>
+                                  updateSubcategory(
+                                    subcategory.id,
+                                    'sortOrder',
+                                    Number(event.target.value),
+                                  )
+                                }
+                                type="number"
+                                value={subcategory.sortOrder}
+                              />
+                              <input
+                                className="h-10 rounded-xl border border-white/10 bg-[#151515] px-3 font-body text-sm text-cream outline-none focus:border-gold"
+                                onChange={(event) => {
+                                  updateSubcategory(
+                                    subcategory.id,
+                                    'name',
+                                    event.target.value,
+                                  )
+                                  if (
+                                    !savedSubcategoryIds.current.has(subcategory.id)
+                                  ) {
+                                    updateSubcategory(
+                                      subcategory.id,
+                                      'slug',
+                                      slugify(event.target.value) || subcategory.slug,
+                                    )
+                                  }
+                                }}
+                                placeholder="Nombre"
+                                value={subcategory.name}
+                              />
+                              <input
+                                className="h-10 rounded-xl border border-white/10 bg-[#151515] px-3 font-body text-sm text-cream outline-none focus:border-gold"
+                                onChange={(event) =>
+                                  updateSubcategory(
+                                    subcategory.id,
+                                    'slug',
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="slug"
+                                value={subcategory.slug}
+                              />
+                              <span className="inline-flex h-10 items-center rounded-xl border border-white/10 bg-[#151515] px-3 font-body text-sm text-cream-dark">
+                                {subcategory.productCount} prod.
+                              </span>
+                              <button
+                                className={cn(
+                                  'inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 font-body text-sm transition-colors',
+                                  subcategory.active
+                                    ? 'border-sage/40 text-sage-light'
+                                    : 'border-white/10 text-cream-dark/45',
+                                )}
+                                onClick={() =>
+                                  updateSubcategory(
+                                    subcategory.id,
+                                    'active',
+                                    !subcategory.active,
+                                  )
+                                }
+                                type="button"
+                              >
+                                <Eye className="h-4 w-4" />
+                                {subcategory.active ? 'Visible' : 'Oculta'}
+                              </button>
+                              <button
+                                className="grid h-10 w-10 place-items-center rounded-xl text-cream-dark/60 transition-colors hover:bg-red-500/10 hover:text-red-300"
+                                onClick={() => {
+                                  setSubcategoriesDirty(true)
+                                  setSubcategoryDrafts((current) =>
+                                    current.filter(
+                                      (item) => item.id !== subcategory.id,
+                                    ),
+                                  )
+                                }}
+                                type="button"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                              <textarea
+                                className="min-h-16 rounded-xl border border-white/10 bg-[#151515] px-3 py-2 font-body text-sm text-cream outline-none focus:border-gold lg:col-span-6"
+                                onChange={(event) =>
+                                  updateSubcategory(
+                                    subcategory.id,
+                                    'description',
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder="Descripcion corta de la subcategoria"
+                                value={subcategory.description}
+                              />
+                            </div>
+                          ))}
+
+                        {!subcategoryOptions.some(
+                          (subcategory) => subcategory.categoryId === category.id,
+                        ) ? (
+                          <div className="rounded-xl border border-dashed border-white/10 px-4 py-3 font-body text-sm text-cream-dark/55">
+                            Sin subcategorias aun. Puedes agregarlas cuando esta
+                            categoria necesite filtros internos.
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1364,26 +2046,404 @@ export function AdminProductsPage() {
                 Guardado seguro
               </h2>
               <p className="mt-3 font-body text-sm leading-relaxed text-cream-dark/65">
-                Guarda cambios de varias categorías a la vez y valida en el
-                backend que ninguna categoría con productos sea eliminada.
+                Guarda cambios de categorias y subcategorias hijas desde un solo
+                arbol editable.
               </p>
               <button
                 className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-gold bg-gold px-5 font-body text-sm font-semibold text-ink transition-colors hover:bg-gold-light"
-                onClick={saveCategories}
+                onClick={saveCategoryTree}
                 type="button"
               >
                 <Save className="h-4 w-4" />
-                Guardar categorías
+                Guardar arbol de categorias
               </button>
               <div className="mt-5 rounded-xl border border-gold/20 bg-gold/10 p-4">
                 <p className="font-body text-xs font-semibold uppercase tracking-widest text-gold">
                   Regla sugerida
                 </p>
                 <p className="mt-2 font-body text-sm leading-relaxed text-cream-dark">
-                  No permitir borrar una categoría con productos activos hasta
-                  reasignarlos desde la edición masiva.
+                  No borres una categoria o subcategoria con productos activos:
+                  primero reasigna esos productos desde el editor.
                 </p>
               </div>
+            </aside>
+          </motion.section>
+        ) : null}
+
+        {activeTab === 'subcategories' ? (
+          <motion.section
+            animate={{ opacity: 1, y: 0 }}
+            className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]"
+            exit={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 10 }}
+            key="subcategories"
+          >
+            <div className="rounded-xl border border-white/5 bg-[#242424]">
+              <div className="flex items-center justify-between gap-4 border-b border-white/5 px-5 py-4">
+                <div>
+                  <h2 className="font-display text-2xl text-cream">
+                    Subcategorias por categoria
+                  </h2>
+                  <p className="mt-1 font-body text-xs text-cream-dark/50">
+                    Crea pulseras, collares, kits u otras divisiones dentro de cada categoria.
+                  </p>
+                </div>
+                <button
+                  className="inline-flex h-10 items-center gap-2 rounded-full border border-gold/40 px-4 font-body text-xs text-gold transition-colors hover:bg-gold/10 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={!categoryOptions.length}
+                  onClick={() => {
+                    const category = categoryOptions[0]
+
+                    if (!category) return
+
+                    setSubcategoriesDirty(true)
+                    setSubcategoryDrafts((current) => [
+                      ...current,
+                      createEmptySubcategoryDraft(
+                        category.id,
+                        category.slug,
+                        current.length + 1,
+                      ),
+                    ])
+                  }}
+                  type="button"
+                >
+                  <Plus className="h-4 w-4" />
+                  Agregar
+                </button>
+              </div>
+              <div className="divide-y divide-white/5">
+                {subcategoryOptions.length ? (
+                  subcategoryOptions.map((subcategory) => (
+                    <div
+                      className="grid gap-3 px-5 py-4 lg:grid-cols-[180px_76px_minmax(0,1fr)_minmax(0,1fr)_110px_112px_auto]"
+                      key={subcategory.id}
+                    >
+                      <select
+                        className="h-10 rounded-xl border border-white/10 bg-[#191919] px-3 font-body text-sm text-cream outline-none focus:border-gold"
+                        onChange={(event) => {
+                          const category = categoryOptions.find(
+                            (item) => item.id === event.target.value,
+                          )
+
+                          updateSubcategory(
+                            subcategory.id,
+                            'categoryId',
+                            event.target.value,
+                          )
+                          updateSubcategory(
+                            subcategory.id,
+                            'categorySlug',
+                            category?.slug ?? '',
+                          )
+                        }}
+                        value={subcategory.categoryId}
+                      >
+                        {categoryOptions.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        className="h-10 rounded-xl border border-white/10 bg-[#191919] px-3 font-body text-sm text-cream outline-none focus:border-gold"
+                        onChange={(event) =>
+                          updateSubcategory(
+                            subcategory.id,
+                            'sortOrder',
+                            Number(event.target.value),
+                          )
+                        }
+                        type="number"
+                        value={subcategory.sortOrder}
+                      />
+                      <input
+                        className="h-10 rounded-xl border border-white/10 bg-[#191919] px-3 font-body text-sm text-cream outline-none focus:border-gold"
+                        onChange={(event) => {
+                          updateSubcategory(subcategory.id, 'name', event.target.value)
+                          if (!savedSubcategoryIds.current.has(subcategory.id)) {
+                            updateSubcategory(
+                              subcategory.id,
+                              'slug',
+                              slugify(event.target.value) || subcategory.slug,
+                            )
+                          }
+                        }}
+                        value={subcategory.name}
+                      />
+                      <input
+                        className="h-10 rounded-xl border border-white/10 bg-[#191919] px-3 font-body text-sm text-cream outline-none focus:border-gold"
+                        onChange={(event) =>
+                          updateSubcategory(subcategory.id, 'slug', event.target.value)
+                        }
+                        value={subcategory.slug}
+                      />
+                      <span className="inline-flex h-10 items-center rounded-xl border border-white/10 bg-[#191919] px-3 font-body text-sm text-cream-dark">
+                        {subcategory.productCount} productos
+                      </span>
+                      <button
+                        className={cn(
+                          'inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 font-body text-sm transition-colors',
+                          subcategory.active
+                            ? 'border-sage/40 text-sage-light'
+                            : 'border-white/10 text-cream-dark/45',
+                        )}
+                        onClick={() =>
+                          updateSubcategory(
+                            subcategory.id,
+                            'active',
+                            !subcategory.active,
+                          )
+                        }
+                        type="button"
+                      >
+                        <Eye className="h-4 w-4" />
+                        {subcategory.active ? 'Visible' : 'Oculta'}
+                      </button>
+                      <button
+                        className="grid h-10 w-10 place-items-center rounded-xl text-cream-dark/60 transition-colors hover:bg-red-500/10 hover:text-red-300"
+                        onClick={() => {
+                          setSubcategoriesDirty(true)
+                          setSubcategoryDrafts((current) =>
+                            current.filter((item) => item.id !== subcategory.id),
+                          )
+                        }}
+                        type="button"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                      <textarea
+                        className="min-h-20 rounded-xl border border-white/10 bg-[#191919] px-3 py-2 font-body text-sm text-cream outline-none focus:border-gold lg:col-span-7"
+                        onChange={(event) =>
+                          updateSubcategory(
+                            subcategory.id,
+                            'description',
+                            event.target.value,
+                          )
+                        }
+                        placeholder="Descripcion interna o SEO corto"
+                        value={subcategory.description}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="px-5 py-10 text-center font-body text-sm text-cream-dark/55">
+                    Aun no hay subcategorias. Crea una para que aparezca en filtros y productos.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <aside className="rounded-xl border border-white/5 bg-[#242424] p-5">
+              <Layers3 className="h-8 w-8 text-gold" />
+              <h2 className="mt-4 font-display text-2xl text-cream">
+                Filtros mas finos
+              </h2>
+              <p className="mt-3 font-body text-sm leading-relaxed text-cream-dark/65">
+                Las subcategorias viven dentro de una categoria y luego se asignan
+                desde el editor de producto. En tienda aparecen como filtros.
+              </p>
+              <button
+                className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-gold bg-gold px-5 font-body text-sm font-semibold text-ink transition-colors hover:bg-gold-light"
+                onClick={saveSubcategories}
+                type="button"
+              >
+                <Save className="h-4 w-4" />
+                Guardar subcategorias
+              </button>
+            </aside>
+          </motion.section>
+        ) : null}
+
+        {activeTab === 'intentions' ? (
+          <motion.section
+            animate={{ opacity: 1, y: 0 }}
+            className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]"
+            exit={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 10 }}
+            key="intentions"
+          >
+            <div className="rounded-xl border border-white/5 bg-[#242424]">
+              <div className="flex items-center justify-between gap-4 border-b border-white/5 px-5 py-4">
+                <div>
+                  <h2 className="font-display text-2xl text-cream">
+                    Intenciones de compra
+                  </h2>
+                  <p className="mt-1 font-body text-xs text-cream-dark/50">
+                    Edita nombre, color, foto y visibilidad de las intenciones.
+                  </p>
+                </div>
+                <button
+                  className="inline-flex h-10 items-center gap-2 rounded-full border border-gold/40 px-4 font-body text-xs text-gold transition-colors hover:bg-gold/10"
+                  onClick={() => {
+                    setIntentionsDirty(true)
+                    setIntentionDrafts((current) => [
+                      ...current,
+                      createEmptyIntentionDraft(current.length + 1),
+                    ])
+                  }}
+                  type="button"
+                >
+                  <Plus className="h-4 w-4" />
+                  Agregar
+                </button>
+              </div>
+              <div className="divide-y divide-white/5">
+                {intentionOptions.map((intention) => (
+                  <div
+                    className="grid gap-3 px-5 py-4 lg:grid-cols-[112px_72px_64px_minmax(0,1fr)_minmax(0,1fr)_110px_112px_auto]"
+                    key={intention.id}
+                  >
+                    <div className="group relative h-24 overflow-hidden rounded-xl border border-white/10 bg-[#191919]">
+                      {intention.imageUrl ? (
+                        <img
+                          alt={intention.name}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                          src={intention.imageUrl}
+                        />
+                      ) : (
+                        <div className="grid h-full w-full place-items-center text-sage-light">
+                          <Sparkles className="h-6 w-6" />
+                        </div>
+                      )}
+                      <label className="absolute inset-x-2 bottom-2 inline-flex h-8 cursor-pointer items-center justify-center rounded-full bg-ink/75 px-3 font-body text-[11px] font-semibold text-cream backdrop-blur transition-colors hover:bg-gold hover:text-ink">
+                        {uploadingIntentionId === intention.id
+                          ? 'Subiendo...'
+                          : 'Cambiar foto'}
+                        <input
+                          accept="image/*"
+                          className="sr-only"
+                          disabled={uploadingIntentionId === intention.id}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0]
+                            event.currentTarget.value = ''
+
+                            if (file) {
+                              void uploadIntentionImage(intention, file)
+                            }
+                          }}
+                          type="file"
+                        />
+                      </label>
+                    </div>
+                    <input
+                      className="h-10 rounded-xl border border-white/10 bg-[#191919] px-3 font-body text-sm text-cream outline-none focus:border-gold"
+                      onChange={(event) =>
+                        updateIntention(
+                          intention.id,
+                          'sortOrder',
+                          Number(event.target.value),
+                        )
+                      }
+                      type="number"
+                      value={intention.sortOrder}
+                    />
+                    <input
+                      className="h-10 rounded-xl border border-white/10 bg-[#191919] px-2"
+                      onChange={(event) =>
+                        updateIntention(intention.id, 'color', event.target.value)
+                      }
+                      type="color"
+                      value={intention.color}
+                    />
+                    <input
+                      className="h-10 rounded-xl border border-white/10 bg-[#191919] px-3 font-body text-sm text-cream outline-none focus:border-gold"
+                      onChange={(event) => {
+                        updateIntention(intention.id, 'name', event.target.value)
+                        if (!savedIntentionIds.current.has(intention.id)) {
+                          updateIntention(
+                            intention.id,
+                            'slug',
+                            slugify(event.target.value) || intention.slug,
+                          )
+                        }
+                      }}
+                      value={intention.name}
+                    />
+                    <input
+                      className="h-10 rounded-xl border border-white/10 bg-[#191919] px-3 font-body text-sm text-cream outline-none focus:border-gold"
+                      onChange={(event) =>
+                        updateIntention(intention.id, 'slug', event.target.value)
+                      }
+                      value={intention.slug}
+                    />
+                    <span className="inline-flex h-10 items-center rounded-xl border border-white/10 bg-[#191919] px-3 font-body text-sm text-cream-dark">
+                      {intention.recommendedProductIds.length} productos
+                    </span>
+                    <button
+                      className={cn(
+                        'inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 font-body text-sm transition-colors',
+                        intention.active
+                          ? 'border-sage/40 text-sage-light'
+                          : 'border-white/10 text-cream-dark/45',
+                      )}
+                      onClick={() =>
+                        updateIntention(intention.id, 'active', !intention.active)
+                      }
+                      type="button"
+                    >
+                      <Eye className="h-4 w-4" />
+                      {intention.active ? 'Visible' : 'Oculta'}
+                    </button>
+                    <button
+                      className="grid h-10 w-10 place-items-center rounded-xl text-cream-dark/60 transition-colors hover:bg-red-500/10 hover:text-red-300"
+                      onClick={() => {
+                        setIntentionsDirty(true)
+                        setIntentionDrafts((current) =>
+                          current.filter((item) => item.id !== intention.id),
+                        )
+                      }}
+                      type="button"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                    <textarea
+                      className="min-h-20 rounded-xl border border-white/10 bg-[#191919] px-3 py-2 font-body text-sm text-cream outline-none focus:border-gold lg:col-span-4"
+                      onChange={(event) =>
+                        updateIntention(
+                          intention.id,
+                          'description',
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Descripcion visible de la intencion"
+                      value={intention.description}
+                    />
+                    <textarea
+                      className="min-h-20 rounded-xl border border-white/10 bg-[#191919] px-3 py-2 font-body text-sm text-cream outline-none focus:border-gold lg:col-span-4"
+                      onChange={(event) =>
+                        updateIntention(
+                          intention.id,
+                          'benefits',
+                          normalizeTags(event.target.value),
+                        )
+                      }
+                      placeholder="Beneficios separados por coma"
+                      value={intention.benefits.join(', ')}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <aside className="rounded-xl border border-white/5 bg-[#242424] p-5">
+              <Sparkles className="h-8 w-8 text-gold" />
+              <h2 className="mt-4 font-display text-2xl text-cream">
+                Navegacion por energia
+              </h2>
+              <p className="mt-3 font-body text-sm leading-relaxed text-cream-dark/65">
+                Las intenciones alimentan tarjetas del home, filtros de tienda y
+                asignaciones del producto.
+              </p>
+              <button
+                className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-gold bg-gold px-5 font-body text-sm font-semibold text-ink transition-colors hover:bg-gold-light"
+                onClick={saveIntentions}
+                type="button"
+              >
+                <Save className="h-4 w-4" />
+                Guardar intenciones
+              </button>
             </aside>
           </motion.section>
         ) : null}
@@ -1391,6 +2451,7 @@ export function AdminProductsPage() {
 
       <ProductEditorDrawer
         categoryOptions={categoryOptions}
+        intentionOptions={intentionOptions}
         onClose={() => {
           setEditorOpen(false)
           setEditorProduct(null)
@@ -1413,6 +2474,7 @@ export function AdminProductsPage() {
         }}
         open={editorOpen}
         product={editorProduct}
+        subcategoryOptions={subcategoryOptions}
       />
     </div>
   )

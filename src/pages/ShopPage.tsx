@@ -12,10 +12,12 @@ import {
   categories,
   intentions,
   products,
+  subcategories,
   type Category,
   type Intention,
   type Product,
   type ProductStatus,
+  type Subcategory,
 } from '../data'
 import { useCartStore, useCatalogStore } from '../store'
 import { Accordion } from '../components/ui/Accordion'
@@ -37,6 +39,7 @@ type FilterState = {
   intentions: string[]
   price: [number, number]
   sort: SortOption
+  subcategories: string[]
 }
 
 type FilterPatch = Partial<FilterState>
@@ -130,6 +133,21 @@ function findIntentionByParam(value: string): Intention | undefined {
   })
 }
 
+function findSubcategoryByParam(value: string): Subcategory | undefined {
+  const normalized = normalize(value)
+
+  return subcategories.find((subcategory) => {
+    const matchers = [
+      subcategory.id,
+      subcategory.slug,
+      subcategory.name,
+      subcategory.categorySlug,
+    ].map(normalize)
+
+    return matchers.includes(normalized)
+  })
+}
+
 function parseFilters(searchParams: URLSearchParams): FilterState {
   const selectedCategories = splitParam(searchParams.get('categoria'))
     .map(findCategoryByParam)
@@ -139,6 +157,13 @@ function parseFilters(searchParams: URLSearchParams): FilterState {
     .map(findIntentionByParam)
     .filter((intention): intention is Intention => Boolean(intention))
     .map((intention) => intention.id)
+  const selectedSubcategories = splitParam(searchParams.get('subcategoria'))
+    .map(findSubcategoryByParam)
+    .filter((subcategory): subcategory is Subcategory => Boolean(subcategory))
+    .map((subcategory) => subcategory.id)
+  const selectedSubcategoryCategoryIds = selectedSubcategories
+    .map((id) => subcategories.find((subcategory) => subcategory.id === id)?.categoryId)
+    .filter((id): id is string => Boolean(id))
   const selectedAvailability = splitParam(searchParams.get('disponibilidad'))
     .filter((status): status is AvailabilityFilter =>
       availabilityOptions.some((option) => option.value === status),
@@ -154,13 +179,16 @@ function parseFilters(searchParams: URLSearchParams): FilterState {
 
   return {
     availability: Array.from(new Set(selectedAvailability)),
-    categories: Array.from(new Set(selectedCategories)),
+    categories: Array.from(
+      new Set([...selectedCategories, ...selectedSubcategoryCategoryIds]),
+    ),
     intentions: Array.from(new Set(selectedIntentions)),
     price: [
       Number.isFinite(minPrice) ? minPrice : minCatalogPrice,
       Number.isFinite(maxPrice) ? maxPrice : maxCatalogPrice,
     ],
     sort,
+    subcategories: Array.from(new Set(selectedSubcategories)),
   }
 }
 
@@ -196,6 +224,20 @@ function writeFiltersToParams(
     next.delete('intencion')
   }
 
+  if (nextState.subcategories.length) {
+    next.set(
+      'subcategoria',
+      nextState.subcategories
+        .map(
+          (id) =>
+            subcategories.find((subcategory) => subcategory.id === id)?.slug ?? id,
+        )
+        .join(','),
+    )
+  } else {
+    next.delete('subcategoria')
+  }
+
   if (nextState.availability.length) {
     next.set('disponibilidad', nextState.availability.join(','))
   } else {
@@ -222,6 +264,12 @@ function writeFiltersToParams(
   return next
 }
 
+function getProductCategoryLabel(product: Product) {
+  const category = categories.find((item) => item.id === product.categoryId)
+
+  return category?.shortName || category?.name || 'Categoria'
+}
+
 function mapProductToCard(product: Product): ProductCardItem {
   return {
     compareAtPrice: product.compareAtPrice,
@@ -232,9 +280,7 @@ function mapProductToCard(product: Product): ProductCardItem {
         src: product.images[0]?.src ?? '',
       },
     ],
-    intentionLabel:
-      intentions.find((intention) => product.intentionIds.includes(intention.id))
-        ?.name ?? 'Ritual',
+    intentionLabel: getProductCategoryLabel(product),
     name: product.name,
     price: product.price,
     slug: product.slug,
@@ -447,10 +493,21 @@ function FilterPanel({
   onPatch: (patch: FilterPatch) => void
 }) {
   const toggleCategory = (id: string) => {
+    const nextCategories = filters.categories.includes(id)
+      ? filters.categories.filter((categoryId) => categoryId !== id)
+      : [...filters.categories, id]
+
     onPatch({
-      categories: filters.categories.includes(id)
-        ? filters.categories.filter((categoryId) => categoryId !== id)
-        : [...filters.categories, id],
+      categories: nextCategories,
+      subcategories: filters.subcategories.filter((subcategoryId) => {
+        const subcategory = subcategories.find((item) => item.id === subcategoryId)
+
+        return (
+          !subcategory ||
+          !nextCategories.length ||
+          nextCategories.includes(subcategory.categoryId)
+        )
+      }),
     })
   }
 
@@ -459,6 +516,19 @@ function FilterPanel({
       intentions: filters.intentions.includes(id)
         ? filters.intentions.filter((intentionId) => intentionId !== id)
         : [...filters.intentions, id],
+    })
+  }
+
+  const getSubcategoriesForCategory = (categoryId: string) =>
+    subcategories.filter(
+      (subcategory) => subcategory.active && subcategory.categoryId === categoryId,
+    )
+
+  const toggleSubcategory = (id: string) => {
+    onPatch({
+      subcategories: filters.subcategories.includes(id)
+        ? filters.subcategories.filter((subcategoryId) => subcategoryId !== id)
+        : [...filters.subcategories, id],
     })
   }
 
@@ -493,22 +563,67 @@ function FilterPanel({
       <Accordion
         allowMultiple
         className="divide-gold/15"
-        defaultOpenIds={['categories', 'intentions', 'price', 'availability']}
+        defaultOpenIds={[
+          'categories',
+          'intentions',
+          'price',
+          'availability',
+        ]}
         items={[
           {
             answer: (
               <div className="space-y-3">
-                {categories.map((category) => (
-                  <button
-                    className="flex w-full items-center gap-3 text-left font-body text-sm text-ink"
-                    key={category.id}
-                    onClick={() => toggleCategory(category.id)}
-                    type="button"
-                  >
-                    <CheckboxIcon checked={filters.categories.includes(category.id)} />
-                    <span>{category.name}</span>
-                  </button>
-                ))}
+                {categories.map((category) => {
+                  const checked = filters.categories.includes(category.id)
+                  const childSubcategories = getSubcategoriesForCategory(category.id)
+
+                  return (
+                    <div key={category.id}>
+                      <button
+                        className="flex w-full items-center gap-3 text-left font-body text-sm text-ink"
+                        onClick={() => toggleCategory(category.id)}
+                        type="button"
+                      >
+                        <CheckboxIcon checked={checked} />
+                        <span className="flex-1">{category.name}</span>
+                        {childSubcategories.length ? (
+                          <span className="font-body text-[11px] uppercase tracking-widest text-ink-muted/60">
+                            {childSubcategories.length}
+                          </span>
+                        ) : null}
+                      </button>
+
+                      <AnimatePresence initial={false}>
+                        {checked && childSubcategories.length ? (
+                          <motion.div
+                            animate={{ height: 'auto', opacity: 1 }}
+                            className="ml-7 mt-3 overflow-hidden border-l border-gold/20 pl-3"
+                            exit={{ height: 0, opacity: 0 }}
+                            initial={{ height: 0, opacity: 0 }}
+                          >
+                            <div className="space-y-2">
+                              {childSubcategories.map((subcategory) => (
+                                <button
+                                  className="flex w-full items-center gap-3 text-left font-body text-sm text-ink-muted transition-colors hover:text-ink"
+                                  key={subcategory.id}
+                                  onClick={() => toggleSubcategory(subcategory.id)}
+                                  type="button"
+                                >
+                                  <CheckboxIcon
+                                    checked={filters.subcategories.includes(
+                                      subcategory.id,
+                                    )}
+                                  />
+                                  <span>{subcategory.name}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </motion.div>
+                        ) : null}
+                      </AnimatePresence>
+                    </div>
+                  )
+                })}
               </div>
             ),
             id: 'categories',
@@ -781,6 +896,7 @@ function ListProductCard({
   const isSoldOut = product.status === 'sold-out' || product.stock <= 0
   const isLowStock = !isSoldOut && (product.status === 'low-stock' || product.stock <= 5)
   const productImage = product.images[0]?.src
+  const categoryLabel = getProductCategoryLabel(product)
 
   return (
     <motion.article
@@ -818,7 +934,7 @@ function ListProductCard({
               ? 'Stock bajo'
               : product.isNew
                 ? 'Nuevo'
-                : 'Ritual'}
+                : categoryLabel}
         </Badge>
         <h3 className="mt-2 font-display text-xl leading-tight text-ink">
           {product.name}
@@ -902,6 +1018,11 @@ export function ShopPage() {
         product.intentionIds.some((intentionId) =>
           filters.intentions.includes(intentionId),
         )
+      const matchesSubcategory =
+        !filters.subcategories.length ||
+        product.subcategoryIds.some((subcategoryId) =>
+          filters.subcategories.includes(subcategoryId),
+        )
       const matchesPrice =
         product.price >= filters.price[0] && product.price <= filters.price[1]
       const matchesAvailability =
@@ -911,6 +1032,7 @@ export function ShopPage() {
       return (
         matchesCategory &&
         matchesIntention &&
+        matchesSubcategory &&
         matchesPrice &&
         matchesAvailability
       )
@@ -1033,6 +1155,21 @@ export function ShopPage() {
       }
     })
 
+    filters.subcategories.forEach((id) => {
+      const subcategory = subcategories.find((item) => item.id === id)
+
+      if (subcategory) {
+        pills.push({
+          id: `subcategory-${id}`,
+          label: subcategory.name,
+          onRemove: () =>
+            patchFilters({
+              subcategories: filters.subcategories.filter((item) => item !== id),
+            }),
+        })
+      }
+    })
+
     filters.availability.forEach((status) => {
       const option = availabilityOptions.find((item) => item.value === status)
 
@@ -1070,8 +1207,16 @@ export function ShopPage() {
       segments.push(category.shortName)
     }
 
+    const subcategory = subcategories.find(
+      (item) => item.id === filters.subcategories[0],
+    )
+
+    if (subcategory) {
+      segments.push(subcategory.name)
+    }
+
     return segments
-  }, [catalogVersion, filters.categories])
+  }, [catalogVersion, filters.categories, filters.subcategories])
 
   const suggestedIntentions = filters.intentions.length
     ? intentions.filter((intention) => !filters.intentions.includes(intention.id)).slice(0, 3)

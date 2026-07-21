@@ -1,4 +1,6 @@
-const DEFAULT_API_URL = 'https://auralith-backend-production.up.railway.app'
+const DEFAULT_API_URL = import.meta.env.DEV
+  ? 'http://127.0.0.1:3000'
+  : 'https://auralith-backend-production.up.railway.app'
 
 function normalizeApiUrl(url: string) {
   const normalizedUrl = url.replace(/\/+$/, '')
@@ -6,7 +8,7 @@ function normalizeApiUrl(url: string) {
   return normalizedUrl.endsWith('/api') ? normalizedUrl : `${normalizedUrl}/api`
 }
 
-const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL ?? DEFAULT_API_URL)
+const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL || DEFAULT_API_URL)
 
 export const ADMIN_TOKEN_KEY = 'auralith-admin-token'
 

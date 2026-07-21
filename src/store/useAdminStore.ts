@@ -76,6 +76,45 @@ export type AdminCategory = {
   sortOrder: number
 }
 
+export type AdminSubcategory = {
+  active: boolean
+  categoryId: string
+  categorySlug: string
+  description: string
+  id: string
+  name: string
+  productCount: number
+  seo: {
+    description?: string
+    keywords?: string[]
+    title?: string
+  }
+  slug: string
+  sortOrder: number
+}
+
+export type AdminIntention = {
+  active: boolean
+  affirmation: string
+  benefits: string[]
+  color: string
+  description: string
+  icon: string
+  id: string
+  imageUrl: string | null
+  name: string
+  recommendedProductIds: string[]
+  relatedCategoryIds: string[]
+  ritualPrompt: string
+  seo: {
+    description?: string
+    keywords?: string[]
+    title?: string
+  }
+  slug: string
+  sortOrder: number
+}
+
 export type AdminOrderItem = {
   name: string
   price: number
@@ -146,6 +185,7 @@ type ApiProduct = {
   slug: string
   status: string
   stock: number
+  subcategoryIds: string[]
   tags: string[]
 }
 
@@ -159,9 +199,11 @@ type AdminState = {
   error: string | null
   hydrate: () => Promise<void>
   isLoading: boolean
+  intentions: AdminIntention[]
   orders: AdminOrder[]
   products: AdminProduct[]
   removeOrder: (orderId: string) => void
+  subcategories: AdminSubcategory[]
   toasts: AdminToast[]
   toggleProductVisibility: (productId: string) => Promise<void>
   updateContent: (content: AdminContent) => Promise<void>
@@ -214,7 +256,7 @@ function mapProduct(product: ApiProduct): AdminProduct {
     slug: product.slug,
     status: mapStatus(product.status),
     stock: product.stock,
-    subcategoryIds: [],
+    subcategoryIds: product.subcategoryIds ?? [],
     tags: product.tags,
   }
 }
@@ -258,6 +300,7 @@ function productPayload(product: AdminProduct) {
     slug: product.slug,
     status,
     stock: product.stock,
+    subcategoryIds: product.subcategoryIds,
     subtitle: '',
     sustainability: {},
     tags: product.tags,
@@ -334,6 +377,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   },
   content: emptyContent,
   categories: [],
+  intentions: [],
   deleteProduct: async (productId) => {
     const hiddenProduct = await apiFetch<ApiProduct>(
       `/admin/products/${productId}`,
@@ -356,18 +400,29 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     set({ error: null, isLoading: true })
 
     try {
-      const [apiProducts, orders, content, categories] = await Promise.all([
+      const [
+        apiProducts,
+        orders,
+        content,
+        categories,
+        subcategories,
+        intentions,
+      ] = await Promise.all([
         apiFetch<ApiProduct[]>('/admin/products', { cache: 'no-store' }, true),
         apiFetch<AdminOrder[]>('/admin/orders', { cache: 'no-store' }, true),
         apiFetch<AdminContent>('/admin/content', { cache: 'no-store' }, true),
         apiFetch<AdminCategory[]>('/admin/categories', { cache: 'no-store' }, true),
+        apiFetch<AdminSubcategory[]>('/admin/subcategories', { cache: 'no-store' }, true),
+        apiFetch<AdminIntention[]>('/admin/intentions', { cache: 'no-store' }, true),
       ])
       set({
         categories,
         content,
+        intentions,
         isLoading: false,
         orders: orders.map(normalizeOrder),
         products: apiProducts.map(mapProduct),
+        subcategories,
       })
     } catch (error) {
       set({
@@ -384,6 +439,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       orders: state.orders.filter((order) => order.id !== orderId),
     })),
   toasts: [],
+  subcategories: [],
   toggleProductVisibility: async (productId) => {
     const product = get().products.find((item) => item.id === productId)
     if (!product) return

@@ -3,12 +3,14 @@ import {
   categories,
   intentions,
   products,
+  subcategories,
   type Category,
   type CategoryId,
   type Intention,
   type IntentionId,
   type Product,
   type ProductStatus,
+  type Subcategory,
 } from '../data'
 import { apiFetch } from '../lib/api'
 import type { AdminContent } from './useAdminStore'
@@ -34,18 +36,23 @@ type ApiCategory = Omit<Category, 'id' | 'image' | 'intentionIds'> & {
   intentionIds: string[]
 }
 
+type ApiSubcategory = Omit<Subcategory, 'categoryId'> & {
+  categoryId: string
+}
+
 type ApiIntention = Omit<
   Intention,
-  'id' | 'recommendedProductIds' | 'relatedCategoryIds'
+  'id' | 'image' | 'recommendedProductIds' | 'relatedCategoryIds'
 > & {
   id: string
+  imageUrl: string | null
   recommendedProductIds: string[]
   relatedCategoryIds: string[]
 }
 
 type ApiProduct = Omit<
   Product,
-  'categoryId' | 'images' | 'intentionIds' | 'status'
+  'categoryId' | 'images' | 'intentionIds' | 'status' | 'subcategoryIds'
 > & {
   categoryId: string
   images: Array<{
@@ -57,6 +64,7 @@ type ApiProduct = Omit<
   }>
   intentionIds: string[]
   status: string
+  subcategoryIds: string[]
 }
 
 type CatalogState = {
@@ -158,7 +166,15 @@ function mapIntention(intention: ApiIntention): Intention {
   return {
     ...intention,
     id: intention.id as IntentionId,
+    image: intention.imageUrl ?? '',
     relatedCategoryIds: intention.relatedCategoryIds as CategoryId[],
+  }
+}
+
+function mapSubcategory(subcategory: ApiSubcategory): Subcategory {
+  return {
+    ...subcategory,
+    categoryId: subcategory.categoryId as CategoryId,
   }
 }
 
@@ -189,6 +205,7 @@ function mapProduct(product: ApiProduct): Product {
     seo: mapSeo(product.seo, product.name, shortDescription),
     shortDescription,
     status: product.status as ProductStatus,
+    subcategoryIds: asStringArray(product.subcategoryIds),
     sustainability: mapSustainability(product.sustainability),
     tags: asStringArray(product.tags),
     zodiacSigns: asStringArray(product.zodiacSigns),
@@ -206,16 +223,22 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     set({ error: null, isLoading: true })
 
     try {
-      const [apiProducts, apiCategories, apiIntentions, content] =
+      const [apiProducts, apiCategories, apiSubcategories, apiIntentions, content] =
         await Promise.all([
           apiFetch<ApiProduct[]>('/catalog/products', { cache: 'no-store' }),
           apiFetch<ApiCategory[]>('/catalog/categories', { cache: 'no-store' }),
+          apiFetch<ApiSubcategory[]>('/catalog/subcategories', { cache: 'no-store' }),
           apiFetch<ApiIntention[]>('/catalog/intentions', { cache: 'no-store' }),
           apiFetch<AdminContent>('/content', { cache: 'no-store' }),
         ])
 
       products.splice(0, products.length, ...apiProducts.map(mapProduct))
       categories.splice(0, categories.length, ...apiCategories.map(mapCategory))
+      subcategories.splice(
+        0,
+        subcategories.length,
+        ...apiSubcategories.map(mapSubcategory),
+      )
       intentions.splice(0, intentions.length, ...apiIntentions.map(mapIntention))
 
       set((state) => ({
